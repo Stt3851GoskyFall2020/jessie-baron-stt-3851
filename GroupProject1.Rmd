@@ -1,0 +1,333 @@
+---
+title: "Stt 3851 Project 1"
+author: "Jose Chavarria-Villagomez, Jessie Baron, and Trennon Clapp"
+date: "3/17/2020"
+output:
+  bookdown::html_document2:
+    highlight: textmate
+    theme: yeti
+---
+
+# Data Summary
+
+## Loading Data and Packages
+```{r}
+library(tidyverse)
+library(dplyr)
+library(corrplot)
+library(readxl)
+library(ggplot2)
+library(GGally)
+library(DT)
+housing <- read_excel("Housing.xlsx")
+#View(housing)
+attach(housing)
+```
+
+## Looking at the Data
+```{r}
+datatable(housing, rownames = FALSE) # added a table for visual organization
+```
+
+```{r}
+names(housing)
+glimpse(housing)
+dim(housing)
+housing = na.omit(housing)
+```
+
+We removed any rows of data with missing information.
+
+```{r}
+summary(housing)
+```
+
+# Exploratory Data Analysis
+
+```{r}
+str(housing)
+```
+
+```{r}
+pairs(housing[,2:9]) #price-garage size
+cor(housing[,2:9]) #correlation between variables
+```
+
+Looking at our intial variables compared to `price` we do not see much of a pattern between the price of the house and other varaibles. When we look at the `Cor()` we can see that there is a small "strong"(When comparing it to the other r values) positive correlation between `price` and `garagesize` at r=.3583861, the following correlation is `lot` at r=0.24423228 We can see a small "strong" negative correlation when we look at `bedrooms`. All in all, we will not be able to use a simple linear model to get much of an accurate prediction when we look at the variables individually compared to `price`. 
+
+## Log Transformations of Data
+
+```{r}
+## looking at price
+g1 <- ggplot(housing, aes(x=price)) + geom_density(fill="blue") + ggtitle("Price of House (in thousands of dollars)")
+g1
+```
+
+```{r}
+## log transformation of price
+housing <- housing %>%
+  mutate(log_price=log10(price))
+ggplot(housing, aes(x=log_price)) + geom_histogram(fill="blue", binwidth = 0.025) + ggtitle("Log Transformation of Price")
+```
+
+```{r}
+# looking at size
+g2 <- ggplot(housing, aes(x=size)) + geom_density(fill="red") +
+  ggtitle("Size of House (in thousands of sqft")
+g2
+```
+
+```{r}
+## log transformation of size
+housing <- housing %>%
+  mutate(log_size=log10(size))
+ggplot(housing, aes(x=log_size)) + geom_histogram(fill="red", binwidth=0.025) + ggtitle("Log Transformation of Variable Size")
+```
+
+```{r}
+## looking at "lot"
+g3 <- ggplot(housing, aes(x=lot)) + geom_density(fill="green") + ggtitle("Size of Lot")
+g3
+```
+
+```{r}
+## log transformation of "lot"
+housing <- housing %>%
+  mutate(log_lot=log10(lot))
+ggplot(housing, aes(x=log_lot)) + geom_histogram(fill="green", binwidth=0.025) + ggtitle("Log Transformation of Variable Lot")
+```
+
+```{r}
+## looking at relationship between Log_Price and Log Size
+ggplot(housing,aes(x=log_size,y=log_price))+geom_point(size=0.5)+
+  geom_smooth(method="lm",se=F,alpha=0.6,size=0.5,color="black")+ scale_color_manual(values =rainbow(n=6))+ggtitle("Relationship Between `log_price` and `log_size`")
+```
+
+```{r}
+## looking at relationship between Log_Price and Log_Lot
+ggplot(housing,aes(x=log_lot,y=log_price))+geom_point(size=0.5)+
+  geom_smooth(method="lm",se=F,alpha=0.6,size=0.5,color="black")+ scale_color_manual(values =rainbow(n=6))+ggtitle("Relationship Between `log_price` and `log_lot`")
+```
+
+```{r}
+# looking at log_price based on status
+ggplot(housing,aes(factor(status),log_price,fill=factor(status)))+
+  geom_boxplot(alpha=0.6)+scale_fill_manual(values=rainbow(6))+
+  theme(legend.position="none")+
+  labs(x="Status")
+```
+
+```{r}
+## looking at  log_price based on bedrooms
+ggplot(housing,aes(factor(bedrooms),log_price,fill=factor(bedrooms)))+
+  geom_boxplot(alpha=0.6)+scale_fill_manual(values=rainbow(6))+
+  theme(legend.position="none")+
+  labs(x="Bedrooms")
+```
+
+```{r}
+## looking at log_price based on bathrooms
+ggplot(housing,aes(factor(bath),log_price,fill=factor(bath)))+
+  geom_boxplot(alpha=0.6)+scale_fill_manual(values=rainbow(6))+
+  theme(legend.position="none")+
+  labs(x="Bathrooms")
+```
+
+```{r}
+## looking at log_price based on garage size
+ggplot(housing,aes(factor(garagesize),log_price,fill=factor(garagesize)))+
+  geom_boxplot(alpha=0.6)+scale_fill_manual(values=rainbow(6))+
+  theme(legend.position="none")+
+  labs(x="Garage Size")
+```
+
+```{r}
+## looking at log_price and log_size based on variable status
+ggplot(housing,aes(x=log_size,y=log_price,color=factor(status)))+geom_point(size=0.3)+
+  geom_smooth(method="lm",se=F,alpha=0.6,size=0.5,color="black")+ scale_color_manual(values =rainbow(n=12))+
+  facet_wrap(~status)+
+  theme(legend.position="none") 
+```
+
+```{r}
+## plotting the distribution of yearbuilt
+housing %>% 
+  ggplot(aes(yearbuilt))+geom_histogram(binwidth=5,fill=rainbow(1   ),alpha=0.5)+
+  scale_x_continuous(limits=c(1905,2005))
+```
+
+```{r}
+## correlation plot betweeen price size lot bath and bed
+plot1 <-ggpairs(data=housing, columns=2:6,
+               mapping = aes(color = "dark green"),
+               axisLabels="show")
+plot1
+```
+
+# Initial Modeling
+
+```{r}
+model1<-lm(price ~ size + lot + bath + bedrooms + yearbuilt + agestandardized + garagesize, data = housing)
+plot(model1)
+summary(model1)
+```
+
+```{r}
+initialmod <-lm(price ~ size + lot + bath + bedrooms + yearbuilt + garagesize, data = housing)
+plot(initialmod)
+summary(initialmod)
+```
+
+# Model Modifications
+
+```{r}
+model2 <-lm(price ~ size + lot + bath + bedrooms + agestandardized + garagesize, data = housing)
+plot(model2)
+summary(model2)
+```
+
+Removing "yearbuilt" from the initial model did not increase the model's predictive ability. It would seem that "yearbuilt" and "agestandardized" represent the same factor in different ways and removing "yearbuilt" helped to reduce overfitting.
+
+
+```{r}
+model3 <-lm(price ~ size + lot + bath + bedrooms + yearbuilt + garagesize, data = housing)
+plot(model3)
+summary(model3)
+```
+
+Taking the alternative route, and removing "agestandardised" and leaving the "yearbuilt" has the same results as the other way around. They can be used as substitutes to each other.
+
+```{r}
+model4 <-lm(price ~ size + lot + bath + bedrooms + garagesize, data = housing)
+plot(model4)
+summary(model4)
+```
+
+Removing both "yearbuilt" "abd agestandardised" resulted in lowered multiple R squared, adjusted R squared and p-values. It seems that they bring down the predictive ability of the model.
+
+```{r}
+#removing "garagesize" on the basis of it having the largest Pr(>|t|) value in model4
+model5 <-lm(price ~ size + lot + bath + bedrooms, data = housing)
+plot(model5)
+summary(model5)
+```
+
+Removing "garagesize" also had the effect of lowering multiple R squared, adjusted R squared and p-values. It too was harming the modles predictive abilities.
+
+```{r}
+#removing "bath" on the basis of it having the largest Pr(>|t|) value in model5
+model6 <-lm(price ~ size + lot + bedrooms, data = housing)
+plot(model6)
+summary(model6)
+```
+
+It can be seen that multiple R squared, adjusted R squared and p-values continued to fall between "model5" and "model6." 
+
+```{r}
+#removing "lot" on the basis of it having the largest Pr(>|t|) value in model6
+model7 <-lm(price ~ size + bedrooms, data = housing)
+plot(model7)
+summary(model7)
+```
+
+Once again, another predictor was removed, "lot," and the multiple R squared, adjusted R squared and p-values inched even lower. In the begining it seemed like a complex model wit a multitude of predictors would be useful in predicting "price," but it doesn't seem to be so clear.
+
+It can be seen that "size" has a higher Pr(>|t|) than "bedrooms" in model 7. Upon further investigation, plot1 down below, shows that "size" and "bedrooms" are more correlated that "size" and "price."
+
+```{r}
+#removing "size" on the basis of the above statement.
+model8 <-lm(price ~ bedrooms, data = housing)
+plot(model8)
+summary(model8)
+```
+
+```{r}
+#Adding "lot" back because it is highly correlated with "price" as can be seen in "plot1"
+model9 <-lm(price ~ bedrooms + lot, data = housing)
+plot(model9)
+summary(model9)
+```
+
+```{r}
+#removing "bedrooms" from model9 for expirament
+model10 <-lm(price ~ lot, data = housing)
+plot(model10)
+summary(model10)
+```
+
+A model predicting "price" solely from "lot" is not optimal because of its large p-value, and it has the smallest R values thus far.
+
+A model of "bedroom" and "lot" doesn't seem to 
+
+model1
+Residual standard error: 54.9 on 69 degrees of freedom
+Multiple R-squared:  0.2383,	Adjusted R-squared:  0.1721 
+F-statistic: 3.598 on 6 and 69 DF,  p-value: 0.003672
+
+model2
+Residual standard error: 54.9 on 69 degrees of freedom
+Multiple R-squared:  0.2383,	Adjusted R-squared:  0.1721 
+F-statistic: 3.598 on 6 and 69 DF,  p-value: 0.003672
+
+model3
+Residual standard error: 54.9 on 69 degrees of freedom
+Multiple R-squared:  0.2383,	Adjusted R-squared:  0.1721 
+F-statistic: 3.598 on 6 and 69 DF,  p-value: 0.003672
+
+model4
+Residual standard error: 54.98 on 70 degrees of freedom
+Multiple R-squared:  0.225,	Adjusted R-squared:  0.1697 
+F-statistic: 4.065 on 5 and 70 DF,  p-value: 0.002686
+
+model5
+Residual standard error: 55.29 on 71 degrees of freedom
+Multiple R-squared:  0.2051,	Adjusted R-squared:  0.1603 
+F-statistic: 4.579 on 4 and 71 DF,  p-value: 0.002398
+
+model6
+Residual standard error: 55.59 on 72 degrees of freedom
+Multiple R-squared:  0.185,	Adjusted R-squared:  0.1511 
+F-statistic: 5.449 on 3 and 72 DF,  p-value: 0.001967
+
+model7
+Residual standard error: 56.08 on 73 degrees of freedom
+Multiple R-squared:  0.159,	Adjusted R-squared:  0.136 
+F-statistic: 6.902 on 2 and 73 DF,  p-value: 0.001797
+
+model8
+Residual standard error: 58.2 on 74 degrees of freedom
+Multiple R-squared:  0.08191,	Adjusted R-squared:  0.0695 
+F-statistic: 6.602 on 1 and 74 DF,  p-value: 0.0122
+
+model9
+Residual standard error: 57.46 on 73 degrees of freedom
+Multiple R-squared:  0.117,	Adjusted R-squared:  0.09282 
+F-statistic: 4.837 on 2 and 73 DF,  p-value: 0.01065
+
+
+After analyzing each model we removed predictor variables that were not statistically significant, p-value greater than our alpha = 0.05
+
+#Conclusion
+
+After comparing models 7, 8, and 9 it is aparent that 8 is not as good of a model as the other two. Upon further consideration of the fact that all of the p-values were below 0.05 greater weight was placed on the adjusted R squared values. Models 2 and 3 came into favor. Model 2 seems to be the most optimal model because compromises between lost adjsted R-squared value and a lower p-value. The Multiple R squared value in much closer to 0 than to 1, so the data doesn't cover alot of the variation, but the low p-value shows that it is statistically significant. Model2 has been renamed finalmod for the purposes of the conclusion.
+
+```{r}
+finalmod <-lm(price ~ size + lot + bath + bedrooms + agestandardized + garagesize, data = housing)
+plot(finalmod)
+summary(finalmod)
+```
+
+##95% confidence interval for $\beta$ coefficeients
+
+```{r}
+confint(finalmod, level=.95)
+```
+
+##95% Confidence Interval for Our Hypothetical House
+
+```{r}
+NewHouseForSale <- data.frame(size=2.5, lot= 3, bath=3, bedrooms=3, agestandardized=0, garagesize=1)
+predict(finalmod, newdata=NewHouseForSale, interval = 'confidence')
+```
+
+Using `finalmod` we input the information of our new house going up in the market as a data frame. Our house we're going to be using is a house of size 2.5 with a lot of 3 acres, 3 bathrooms, 3 bedrooms, from the year 1970, hence 0 agestandarized value, and a garage size of 1. The mean price of the house appears to be \$320.4k. We are 95% confident that our NewHouseForSale should sell between \$273.4K and \$367.1K
