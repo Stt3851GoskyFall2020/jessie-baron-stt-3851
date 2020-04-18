@@ -1,0 +1,140 @@
+---
+title: 'STT 3851: CH 3 and 4 Exam'
+author: "Jessie Baron"
+date: "4/16/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+1. Using the college football data, predict the team’s Zsagarin score via the following steps.
+
+  a. Consider the following potential predictors: Fr5Star, Fr4Star, Fravg, So5Star, So4Star, Soavg, Jr5Star, Jr4Star, Jravg, Sr5Star, Sr4Star, Sravg, Rssr5Star, Rssr4Star, Rssravg. Which of these predictors (by itself) has the strongest relationship with the response variable? Justify your answer.
+
+```{r}
+library(readxl)
+
+cfb <- read_excel("CFB2018completeISLR.xlsx")
+
+library(dplyr)
+
+glimpse(cfb)
+```
+
+```{r}
+basemodel <- lm(Zsagarin ~ Fr5star + Fr4star + Fravg + So5star + So4star + Soavg + Jr5star + Jr4star + Jravg + Sr5star + Sr4star + Sravg + Rssr5star + Rssr4star + Rssravg, data = cfb)
+summary(basemodel)
+```
+
+Looking at the basemodel above, our strongest predictors in relation to our response variabe, `Zsagarin`, are Freshman Average, Freshman 5 Star, Sophomore 5 Star, and Senior 5 Star. The Freshman Average has the strongest relationship with a p value close to 0, followed by Sophomore 5 Star with a p value of 0.0410. Freshman 5 Star and Senior 5 Star have the lowest siginficance with p values of 0.0542 and 0.0697 respectively. 
+
+  b. Build a multiple regression model with your predictor from part (a) and at least two other predictors from the set above, so that all three predictors have a statistically significant association with the response.
+
+```{r}
+model1 <- lm(Zsagarin ~ Fravg + So5star, data = cfb)
+summary(model1)
+```
+
+  c. Add Conference to your model from part (b). Report on your findings.
+
+```{r}
+model2 <- lm(Zsagarin ~ Fravg + So5star + conference, data = cfb)
+summary(model2)
+```
+
+Adding `conference` to our model resuts in a similar multiple R-squared of 0.3441 in comparison to `model1` at 0.3317. This model also shows that only `Conference Big Twelve` is significant in relation to our `Zsagarin` response variable, with a p-value of 0.006346. We can also report a slightly smaller residual standard error from this model of 0.8026 versus a residual standard error of 0.8055 in `model`.
+
+  d. For the model you built in part (b), calculate the Variance Inflation Factor for your predictors and note any cases of significant multicollinearity in the model. If multicollinearity is significant, attempt some remedies and describe your reasoning in doing so. If you do not need to remedy significant multicollinearity, explain why.
+
+```{r}
+library(car)
+vif(model1, data = cfb)
+```
+
+The VIF for Freshman Average and Sophomore 5 Star are both 1.44 suggesting that there is there is no multicolinearity between these predictors and the response variable `Zsagarin`.
+
+  e. After modifying your model in part (d), if needed, produce and interpret a set of diagnostic plots for your model. Comment on the plots.
+
+Our model in part (d) did not need to be modified because our values were around 1, so we can proceed with our regression. 
+
+  f. Refine your model by considering adding some quadratic terms and/or interactions for some predictors. Comment on your findings. After this step, present your final model.
+
+```{r}
+x1 <- lm(cfb$Zsagarin ~ cfb$Fravg)
+par(mfrow=c(2,2))
+plot(x1)
+```
+
+```{r}
+x2 <- lm(cfb$Zsagarin ~ cfb$So5star)
+par(mfrow=c(2,2))
+plot(x2)
+```
+
+2. The Donner party were a group of pioneers that migrated to California from the Midwest in the
+mid-1800’s. Their story is quite extensive, and tragic in many way
+(https://en.wikipedia.org/wiki/Donner_Party). The data set provided in donner.xlsx gives information on a set of travelers in the party. Specifically, if the traveler was traveling with an
+immediate family member (MultiFam = 1 if another immediate family member present), the sex of the traveler (Sex = 1 for Female), and Age. The response variable of interest is whether the traveler survived (Survived = 1 for survival).
+
+  a. The data set has 45 observations. Select 30 data points for training the model and 15 points for test data. Clearly show the code that you use to create these sets.
+
+```{r}
+library(readxl)
+donner <- read_excel("donner.xlsx")
+glimpse(donner)
+```
+
+```{r}
+set.seed(1)
+train <- sample(45,30, replace = FALSE)
+train
+```
+
+```{r}
+traindata <- donner[train,]
+traindata
+```
+
+```{r}
+testdata <- donner[-train,]
+testdata
+```
+
+  b. Create a logistic regression model using the training data, and with the three predictors (Multifam, Sex, and Age).
+
+```{r}
+model3 <- glm(Survived ~ Multifam + Sex + Age, family=binomial(link='logit'),data=traindata)
+summary(model3)
+```
+
+```{r}
+probabilities <- predict(model3, testdata, type = "response")
+probabilities
+```
+
+  c. Create the confusion matrix of outcomes for the test data based upon the model in (b). What is the rate of correct predictions for the test data?
+
+  d. Fit a k-nearest neighbors model to this same data (with the same training/test split identified in part (a). Choose whatever value of k you want. Create a confusion matrix for the knn fit. How does it compare to the logistic regression?
+  
+```{r}
+library(class)
+train.X <- cbind(donner$Multifam, donner$Sex, donner$Age, donner$Survived)[donner$traindata]
+
+test.X <- cbind(donner$Multifam, donner$Sex, donner$Age, donner$Survived)[donner$testdata]
+
+train.classification <- donner$Survived[donner$traindata]
+train.classification
+```
+
+```{r}
+set.seed(1)
+
+knn.pred <- knn(train.X,test.X,train.classification,k=1)
+knn.pred
+```
+
+
+
+
