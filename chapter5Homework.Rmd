@@ -1,0 +1,267 @@
+---
+title: "Chapter 5 Homework"
+author: "Jessie Baron"
+date: "4/24/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+##Problem #9
+
+a.
+
+```{r}
+library(MASS)
+attach(Boston)
+
+mu=mean(medv) # estimate of population mean
+print(mu)
+```
+
+b.
+
+```{r}
+sterr = function(x,index){ sd(x[index])/sqrt(length(x[index])) }  # estimate of standard error.
+print(sterr(medv))
+```
+
+c.
+
+```{r}
+library(boot)
+
+set.seed(456)
+boot(medv,function(x,index){mean(x[index])},R=1000)
+```
+
+The results are different but approximate; 0.404878 for the boot estimate and 0.4088611 for the sample estimate.
+
+d. 
+
+```{r}
+mu-2*0.404878  
+```
+
+```{r}
+mu+2*0.404878
+```
+
+e.
+
+```{r}
+print(median(medv))
+```
+
+f.
+
+```{r}
+boot(medv,function(data,index){median(data[index])},1000)
+```
+
+There is a standard error or 0.3756641 for the estimating the median value.
+
+##Part B Using the College Football Dataset
+
+i. loading the data set
+
+```{r}
+library(readxl)
+
+cfb <- read_excel("CFB2018completeISLR.xlsx")
+
+library(dplyr)
+library(ISLR)
+
+glimpse(cfb)
+
+attach(cfb)
+```
+
+ii. setting up the models
+
+```{r}
+model1 <- lm(Zsagarin ~ lysagarin + Fr5star + coachexp_school, data = cfb)
+summary(model1)
+```
+
+```{r}
+model2 <- lm(Zsagarin ~ lysagarin + Fr5star + Fr5star^2 + coachexp_school + coachexp_school^2, data = cfb)
+summary(model2)
+```
+
+iii. splitting the data
+
+```{r}
+set.seed(1)
+record.count <- length(cfb$Zsagarin)
+record.count
+```
+
+```{r}
+train <- sample(857,428)
+```
+
+#### MODEL 1
+
+a. validation set approach 
+
+```{r}
+lm.fit <- lm(Zsagarin ~ lysagarin + Fr5star + coachexp_school, data = cfb, subset = train)
+```
+
+```{r}
+#validation set average
+mean((cfb$Zsagarin-predict(lm.fit,cfb))[-train]^2)
+```
+
+```{r}
+#quadratic model
+lm.fit2 <- lm(Zsagarin~poly(lysagarin + Fr5star + coachexp_school,2),data=cfb,subset=train)
+
+mean((cfb$Zsagarin-predict(lm.fit2,cfb))[-train]^2)
+```
+
+```{r}
+#cubic model
+lm.fit3 <- lm(Zsagarin~poly(lysagarin + Fr5star + coachexp_school,3),data=cfb,subset=train)
+
+mean((cfb$Zsagarin-predict(lm.fit3,cfb))[-train]^2)
+```
+
+b. leave one out cross validation appraoch
+
+```{r}
+# fitting a standard least regression squares model
+glm.fit <- glm(Zsagarin ~ lysagarin + Fr5star + coachexp_school ,data=cfb)
+
+coef(glm.fit)
+```
+
+```{r}
+lm.fit4=lm(Zsagarin ~ lysagarin + Fr5star + coachexp_school ,data=cfb)
+
+coef(lm.fit)
+```
+
+```{r}
+library(boot)
+glm.fit <- glm(Zsagarin ~ lysagarin + Fr5star + coachexp_school ,data=cfb)
+cv.err <- cv.glm(cfb,glm.fit)
+cv.err$delta
+```
+
+```{r}
+cv.error <- rep(0,5)
+for (i in 1:5){
+   glm.fit=glm(Zsagarin~poly(lysagarin + Fr5star + coachexp_school,i),data=cfb)
+ cv.error[i]=cv.glm(cfb,glm.fit)$delta[1]
+ }
+cv.error
+```
+
+c. k fold cross validation
+
+```{r}
+set.seed(3223)
+
+glm.one <- glm(Zsagarin ~ lysagarin + Fr5star + coachexp_school, data = cfb)
+cv.glm.one <- cv.glm(cfb,glm.one,K=10)
+
+glm.two <- glm(Zsagarin ~ Rssr5star + Sr5star + Jr5star + So5star + Fr5star, data = cfb)
+cv.glm.two <- cv.glm(cfb,glm.two,K=10)
+
+cv.glm.one$delta
+```
+
+```{r}
+cv.glm.two$delta
+```
+
+```{r}
+glm.three <- glm(Zsagarin ~ lysagarin + Fr5star + coachexp_school, data = cfb)
+cv.glm.three <- cv.glm(cfb,glm.three,K=10)
+cv.glm.three$delta
+```
+
+#### MODEL 2
+
+a. validation set appraoch
+
+```{r}
+lm.fit5 <- lm(Zsagarin ~ lysagarin + Fr5star + Fr5star^2 + coachexp_school + coachexp_school^2, data = cfb, subset = train)
+```
+
+```{r}
+# validation set average
+mean((cfb$Zsagarin-predict(lm.fit4,cfb))[-train]^2)
+```
+
+```{r}
+#quadratic model
+lm.fit6 <- lm(Zsagarin~poly(lysagarin + Fr5star + Fr5star^2 + coachexp_school + coachexp_school^2,2),data=cfb,subset=train)
+
+mean((cfb$Zsagarin-predict(lm.fit5,cfb))[-train]^2)
+```
+
+```{r}
+#cubic model
+lm.fit7 <- lm(Zsagarin~poly(lysagarin + Fr5star + Fr5star^2 + coachexp_school + coachexp_school^2,3),data=cfb,subset=train)
+
+mean((cfb$Zsagarin-predict(lm.fit6,cfb))[-train]^2)
+```
+
+b. leave one out cross validation approach
+
+```{r}
+# fitting a standard least regression squares model
+glm.fit2 <- glm(Zsagarin ~ lysagarin + Fr5star + Fr5star^2 + coachexp_school + coachexp_school^2, data=cfb)
+
+coef(glm.fit2)
+```
+
+```{r}
+lm.fit8=lm(Zsagarin ~ lysagarin + Fr5star + Fr5star^2 + coachexp_school + coachexp_school^2,data=cfb)
+
+coef(lm.fit8)
+```
+
+```{r}
+library(boot)
+glm.fit2 <- glm(Zsagarin ~ lysagarin + Fr5star + Fr5star^2 + coachexp_school + coachexp_school^2 ,data=cfb)
+cv.err <- cv.glm(cfb,glm.fit2)
+cv.err$delta
+```
+
+```{r}
+cv.error2 <- rep(0,5)
+for (i in 1:5){
+   glm.fit=glm(Zsagarin~poly(lysagarin + Fr5star + Fr5star^2 + coachexp_school + coachexp_school^2,i),data=cfb)
+ cv.error[i]=cv.glm(cfb,glm.fit2)$delta[1]
+ }
+cv.error
+```
+
+c. k fold cross validation
+
+```{r}
+set.seed(3223)
+
+glm.1 <- glm(Zsagarin ~ lysagarin + Fr5star + Fr5star^2 + coachexp_school + coachexp_school^2, data = cfb)
+cv.glm.1 <- cv.glm(cfb,glm.1,K=10)
+
+glm.2 <- glm(Zsagarin ~ lysagarin + Fr5star + Fr5star^2 + coachexp_school + coachexp_school^2, data = cfb)
+cv.glm.2 <- cv.glm(cfb,glm.2,K=10)
+
+cv.glm.1$delta
+cv.glm.2$delta
+```
+
+```{r}
+glm.3 <- glm(Zsagarin ~ lysagarin + Fr5star + Fr5star^2 + coachexp_school + coachexp_school^2, data = cfb)
+cv.glm.3 <- cv.glm(cfb,glm.3,K=10)
+cv.glm.3$delta
+```
+
