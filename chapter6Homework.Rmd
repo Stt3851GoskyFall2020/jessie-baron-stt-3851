@@ -1,0 +1,156 @@
+---
+title: "Chapter 6 Homework"
+author: "Jessie Baron"
+date: "4/25/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+##Problem #9
+
+a.
+
+```{r}
+library(ISLR)
+attach(College)
+set.seed(11)
+#Randomly splitting data into trainig and test set in 7:3 ratio
+subset<-sample(nrow(College),nrow(College)*0.7)
+train<-College[subset,]
+test<-College[-subset,]
+```
+
+b.
+
+```{r}
+ls.full<-lm(Apps~.,data=train)
+summary(ls.full)
+```
+
+```{r}
+predicted.apps<-predict(ls.full,test)
+testerror<-mean((test$Apps-predicted.apps)^2)
+testerror
+```
+
+The Mean Square error for the test data set is 7.69127110^{5}
+
+c.
+
+```{r}
+train.mat<-model.matrix(Apps~.,data=train)
+test.mat<-model.matrix(Apps~.,data=test)
+
+grid<-10^seq(4,-2,length=100)
+
+library(glmnet)
+ridge<-glmnet(train.mat,train$Apps,alpha=0,lambda=grid,thresh = 1e-12)
+
+cv.ridge<-cv.glmnet(train.mat,train$Apps,alpha=0,lambda=grid,thresh=1e-12)
+
+bestlam.ridge<-cv.ridge$lambda.min
+bestlam.ridge
+```
+
+```{r}
+pred.newridge<-predict(ridge,s=bestlam.ridge,newx =test.mat)
+
+mean((test$Apps-pred.newridge)^2)
+```
+
+The Mean Square error for the test data set is 7.691030610^{5} for the Ridge Regression Model.
+
+This is a slightly less mean square error than the one for Least Square Model.
+
+d.
+
+```{r}
+lasso<-glmnet(train.mat,train$Apps,alpha=1,lambda=grid,thresh = 1e-12)
+
+cv.lasso<-cv.glmnet(train.mat,train$Apps,alpha=1,lambda=grid,thresh=1e-12)
+
+bestlam.lasso<-cv.lasso$lambda.min
+bestlam.lasso
+```
+
+```{r}
+pred.newlasso<-predict(lasso,s=bestlam.lasso,newx =test.mat)
+
+mean((test$Apps-pred.newlasso)^2)
+```
+
+```{r}
+predict(lasso,s=bestlam.lasso,type="coefficients")
+```
+
+The Mean Square error for the test data set is 7.690583110^{5} for Lasso Regression Model
+
+The mean square error is even less than the Ridge Regression model. The Lasso model has 13 non zero coefficients.
+
+e.
+
+```{r}
+library(pls)
+pcrmodel<-pcr(Apps~.,data=train,scale=TRUE,validation="CV")
+
+validationplot(pcrmodel,val.type="MSEP")
+```
+
+```{r}
+predict.pcr<-predict(pcrmodel,test,ncomp=17)
+mean((test$Apps-predict.pcr)^2)
+```
+
+We see that the cross validation error is minimum for M=17.If we use 17 components it gives a mean square error of 7.69127110^{5}.
+
+This is close to the one for least squares method.
+
+f.
+
+```{r}
+plsrmodel<-plsr(Apps~.,data=train,scale=TRUE,validation="CV")
+
+validationplot(plsrmodel,val.type="MSEP")
+```
+
+```{r}
+predict.plsr<-predict(plsrmodel,test,ncomp=10)
+mean((test$Apps-predict.plsr)^2)
+```
+
+We see that the cross validation error is minimum for M=10.If we use 10 components it gives a mean square error of 7.752336110^{5}.
+
+This is higher compared to the one for least squares method.
+
+g.
+
+```{r}
+#Least Square model
+test.avg <- mean(test$Apps)
+lm.r2 <- 1 - mean((predicted.apps - test$Apps)^2) / mean((test.avg - test$Apps)^2)
+#Ridge model
+ridge.r2 <- 1 - mean((pred.newridge - test$Apps)^2) / mean((test.avg - test$Apps)^2)
+#Lasso model
+lasso.r2 <- 1 - mean((pred.newlasso - test$Apps)^2) / mean((test.avg - test$Apps)^2)
+#PCR model
+pcr.r2 <- 1 - mean((predict.pcr - test$Apps)^2) / mean((test.avg - test$Apps)^2)
+#PLS model
+pls.r2 <- 1 - mean((predict.plsr - test$Apps)^2) / mean((test.avg - test$Apps)^2)
+```
+
+Least Square Test R-Square: 0.918807
+
+Ridge Model Test R-Square: 0.9188096
+
+Lasso Model Test R-Square: 0.9188143
+
+PCR Model Test R-Square: 0.918807
+
+PLS Model Test R-Square: 0.9181624
+
+It can be observed that the Lasso model predicts the highest R-Square. Though all the models give similar results. 
+
+This was expected as the minimum mean square error was found for the Lasso model across all the models.
