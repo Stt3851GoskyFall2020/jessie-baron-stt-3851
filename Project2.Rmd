@@ -1,0 +1,190 @@
+---
+title: 'Project #2'
+author: "Trennon, Jessie, Jose"
+date: "5/4/2020"
+output: html_document
+---
+
+Project Number 2 (due for your group by 1:30pm on May 6th, the end of the final exam period for the class).  Working on the same teams as last time, working with the same data as last time, and working with the same response variable as last time, do the following steps:
+
+```{r}
+library(tidyverse)
+library(leaps)
+library(dplyr)
+library(corrplot)
+library(readxl)
+library(ggplot2)
+library(GGally)
+library(DT)
+library(caTools)
+library(glmnet)
+library(leaps)
+housing <- read_excel("Housing.xlsx")
+attach(housing)
+set.seed(1)
+```
+
+#a.
+
+Consider the model that you arrived at in the previous project as the first candidate model.
+
+```{r}
+finalmod <-lm(price ~ size + lot + bath + bedrooms + agestandardized + garagesize, data = housing)
+plot(finalmod)
+summary(finalmod)
+```
+
+#b.	
+
+Create a second candidate model by using regsubsets over the entire data set.  You can decide whether you prefer overall selection, forward selection, or backward selection, and you can decide which statistic you will use to determine the best model from the regsubsets process.  Just conduct a justifiable model selection process and report the predictors in your final model.
+
+```{r}
+regfit.full <- regsubsets(price ~ id + size + lot + bath + bedrooms + agestandardized + garagesize + status + elem, data = housing, nvmax = 14)
+reg.summary <- summary(regfit.full)
+names(reg.summary)
+reg.summary$bic
+```
+```{r}
+par(mfrow = c(2, 2))
+plot(reg.summary$rss, xlab = "Number of Variables", ylab = "RSS")
+
+plot(reg.summary$adjr2, xlab = "Number of Variables", ylab = "Adjusted RSq")
+which.max(reg.summary$adjr2)
+points(9, reg.summary$adjr2[9], col = "red", cex = 2, pch = 20)
+
+plot(reg.summary$cp, xlab = "Number of Variables", ylab = "Cp")
+which.min(reg.summary$cp)
+points(6, reg.summary$cp[6], col = "red", cex = 2, pch = 20)
+
+plot(reg.summary$bic, xlab = "Number of Variables", ylab = "BIC")
+which.min(reg.summary$bic)
+points(6, reg.summary$bic[6], col = "red", cex = 2, pch = 20)
+
+coef(regfit.full, 6)
+```
+
+The $C_p$ and BIC both reach their minimum at 6 variables. Adjusted $R^2$ reaches its minimum at 9 variables, but that method "is not as well motivated by statistical theory" as the ISLR textbook would put it. Therefore, the best model is chosen to be that with 6 variables. These variables are size, lot, bedrooms, statussld, elemedison and elemharris.
+
+
+#c.	
+
+Create a training/test split of the data by which roughly half of the 76 observations are training data and half are test data.
+
+```{r}
+set.seed(1) 
+train <- sample(c(TRUE, FALSE), nrow(housing), rep = TRUE)
+test <- (!train)
+test
+```
+
+#d.	
+
+Now use regsubsets over only the training data to determine the number of predictors that should be in your final model.  Then use regsubsets over the entire data set with the determined number of variables to determine your third candidate model.
+
+```{r}
+set.seed(1)
+
+regfit.best <- regsubsets(price ~ id + size + lot + bath + bedrooms + agestandardized + garagesize + status + elem, data = housing[train, ], nvmax = 14)
+
+test.mat <- model.matrix(price ~ id + size + lot + bath + bedrooms + agestandardized + garagesize + status + elem, data = housing[test, ])
+
+val.errors <- rep(NA, 14)
+for(i in 1: 14){
+  coefi = coef(regfit.best, id = i)
+  pred = test.mat[, names(coefi)]%*%coefi
+  val.errors[i] = mean((housing$price[test] - pred)^2)
+}
+
+val.errors
+
+which.min(val.errors)
+
+regfit.best2 <- regsubsets(price ~ id + size + lot + bath + bedrooms + agestandardized + garagesize + status + elem, data = housing[train, ], nvmax = 7)
+
+coef(regfit.best2, 7)
+```
+
+
+After running regsubsets for best subset selecton with a training and test group, the best number of coefficients is determined by the for loop. This number becomes the number of coeffieients used to pick the best model when regsubsets is run over the entire data set. THat final model comes out to have the variables size, lot, bedrooms, agesandardized, statussld, elemdison and elemharris. The specific coefficients can be seen directly above, as the output of coef(regfit.best2, 7)
+
+#e.	
+
+Next, use either Ridge Regression or Lasso Regression with the training data, and use cross validation via the cv.glmnet function to determine the best λ value.  The model from this step with the best λ value will be your fourth candidate model.
+
+```{r}
+#library(glmnet)
+set.seed(1)
+train.mat <- model.matrix(price ~ ., data = housing[train,])
+test.mat <- model.matrix(price ~ ., data = housing[test,])
+grid <- 10 ^ seq(4, -2, length = 100)
+ridge.mod <- glmnet(train.mat, housing$price[train], alpha = 0, lambda = grid, thresh = 1e-12)
+ridge.cv <- cv.glmnet(train.mat, housing$price[train], alpha = 0, lambda = grid, thresh = 1e-12)
+ridge.bestlam <- ridge.cv$lambda.min
+ridge.bestlam
+min(ridge.cv$lambda)
+ridge.pred <- predict(ridge.mod, s = 16.29751, newx = test.mat)
+mean((ridge.pred - housing$price[test])^2)
+
+out = glmnet(train.mat <- model.matrix(price ~ ., data = housing), housing$price, alpha = 0)
+
+ridge.final <- predict(out, type = "coefficients", s = ridge.bestlam)[1:17,]
+ridge.final
+```
+
+We found that our best lambda from the ridge regression is 65.79332.
+
+#f.	
+
+Finally, use either  principal components regression or partial least squares regression for the training data.  Use cross validation (see the class notes or the Chapter 6 Lab from the text) to help you determine the number of components in the model and briefly explain your choice.  This model will be your 5th candidate model.
+
+```{r}
+library(pls)
+set.seed(1)
+
+pcr.model <- pcr(price ~ ., data = housing, scale = TRUE, validation = "CV")
+summary(pcr.model)
+validationplot(pcr.model, val.type = "MSEP")
+coefplot(pcr.model)
+```
+
+ We see that our small cross-validation error occurs when 7 components are used, and we can also see the about 10 models are enough to expalin more than 90% of variablity. When we observe our principal component regression with the summary function, we can see that the less components we use, the less our model captures total variance. On the other hand, if we were to use 18 components we could pottentially caputure 100
+ 
+```{r}
+set.seed(1)
+
+plsr.model <- plsr(price ~ ., data = housing, scale = TRUE, validation = "CV")
+summary(plsr.model)
+validationplot(plsr.model, val.type = "MSEP")
+```
+
+A reasonable drop in the cross validation error is achieved 4 components for PLSR.
+
+#g.	
+
+For each of the five candidate models, calculate the mean square error for predicting the outcomes in the test data set that you created in part c. Based on this comparison, which model do you prefer for this situation?
+
+```{r}
+error1 <- mean((housing$price-predict.lm(finalmod, data = housing[test]))^2)
+error1 
+
+#error2 <- predict.regsubsets =function (object ,newdata ,id ,...){
+ #form=as.formula (object$call [[2]])
+ #mat=model.matrix (form ,newdata )
+ #coefi =coef(object ,id=id)
+ #xvars =names (coefi )
+ #mat[,xvars ]%*% coefi
+ #}
+
+#error3 <- mean((housing$price-predict.lm(regfit.best2, data = housing))^2)
+
+#error4 <- mean((housing$price-predict.lm(ridge.final, s = ridge.bestlam, newx = housing))^2)
+
+#error5 <- mean((housing$price-predict.lm(pcr.model, data = housing,ncomp = 7))^2)
+
+#errors <- matrix(c(error1,error2,error3,error4,error5, ncol=1, byrow = TRUE))
+#colname(errors) <- c("model1", "model2", "model3", "model4", "model5")
+#errors <- as.table(errors)
+#errors
+```
+
+
